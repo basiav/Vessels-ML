@@ -1,0 +1,6 @@
+names:
+- lesion
+nc: 1
+path: /kaggle/working/yolo_dataset
+train: train/images
+val: val/images

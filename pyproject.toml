@@ -1,0 +1,13 @@
+[project]
+name = "vessels-ml"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.2.6",
+    "opencv-python>=4.11.0.86",
+    "pandas>=2.2.3",
+    "scikit-learn>=1.6.1",
+    "ultralytics>=8.3.146",
+]
