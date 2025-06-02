@@ -173,11 +173,13 @@ class LesionYOLOTrainer:
             data=config_path,
             epochs=epochs,
             imgsz=imgsz,
-            patience=20,
+            patience=50,
             save=True,
-            device="CUDA",
+            # device="CUDA",
+            device="0,1",
             workers=4,
-            batch=16,
+            # batch=16,
+            batch=32,
             name="lesion_detection",
         )
 
@@ -212,7 +214,7 @@ class LesionYOLOTrainer:
 
         return results
 
-    def predict_multiple_samples(self, model, num_samples=10, conf_threshold=0.25):
+    def predict_multiple_samples(self, model, num_samples=10, conf_threshold=0.1):
         print(f"Making predictions on {num_samples} sample images...")
 
         sample_images = os.listdir(self.base_images_dir)
@@ -273,7 +275,7 @@ def main():
     model, results = trainer.train_model(
         config_path=config_path,
         model_size="yolov8l",
-        epochs=200,
+        epochs=300,
         imgsz=512,
     )
 
@@ -281,7 +283,12 @@ def main():
     metrics = trainer.evaluate_model(model)
     prediction_results = trainer.predict_multiple_samples(model, num_samples=10)
 
-    print(f"Model saved")
+    for result in prediction_results:
+        print(f"Predictions for {result['image_file']}:")
+        for box in result["results"].boxes:
+            print(f" - Detected {box.cls} with confidence {box.conf:.2f}")
+
+    print(f"Model saved at {model.save_path}")
 
 
 if __name__ == "__main__":
