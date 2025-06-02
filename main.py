@@ -5,6 +5,7 @@ from ultralytics import YOLO
 import yaml
 from sklearn.model_selection import train_test_split
 import shutil
+import random
 
 
 class LesionYOLOTrainer:
@@ -45,7 +46,7 @@ class LesionYOLOTrainer:
     def process_annotations(self):
         print("Processing annotations...")
 
-        # Group lesions by image
+        # Each image can have multiple frames
         grouped = self.lesion_df.groupby(["image_id", "frame"])
 
         image_annotations = {}
@@ -55,13 +56,14 @@ class LesionYOLOTrainer:
             image_path = os.path.join(self.base_images_dir, image_filename)
 
             if not os.path.exists(image_path):
-                print(f"Warning: Image {image_filename} not found, skipping...")
+                print(f"WARNING: Image {image_filename} not found, skipping...")
                 continue
 
-            # Load image to get dimensions
             img = cv2.imread(image_path)
             if img is None:
-                print(f"Warning: Could not load image {image_filename}, skipping...")
+                print(
+                    f"WARNING: Image exists, but cannot be loaded {image_filename}, skipping..."
+                )
                 continue
 
             img_height, img_width = img.shape[:2]
@@ -73,9 +75,29 @@ class LesionYOLOTrainer:
                 width = row["lesion_width"]
                 height = row["lesion_height"]
 
+                # Some images may not have lesion annotations
+                if (
+                    pd.isna(row["lesion_x"])
+                    or pd.isna(row["lesion_y"])
+                    or pd.isna(row["lesion_width"])
+                    or pd.isna(row["lesion_height"])
+                ):
+                    continue
+
                 norm_cx, norm_cy, norm_w, norm_h = self.convert_to_yolo_format(
                     x, y, width, height, img_width, img_height
                 )
+
+                if not (
+                    0 <= norm_cx <= 1
+                    and 0 <= norm_cy <= 1
+                    and 0 <= norm_w <= 1
+                    and 0 <= norm_h <= 1
+                ):
+                    print(
+                        f"WARNING: Invalid normalized coordinates for {image_filename}: cx={norm_cx}, cy={norm_cy}, w={norm_w}, h={norm_h}"
+                    )
+                    continue
 
                 annotations.append(
                     f"0 {norm_cx:.6f} {norm_cy:.6f} {norm_w:.6f} {norm_h:.6f}"
@@ -146,10 +168,7 @@ class LesionYOLOTrainer:
     def train_model(self, config_path, model_size="yolov8n", epochs=100, imgsz=512):
         print(f"Starting YOLO training with {model_size}...")
 
-        # Load a pre-trained model
         model = YOLO(f"{model_size}.pt")
-
-        # Train the model
         results = model.train(
             data=config_path,
             epochs=epochs,
@@ -169,7 +188,6 @@ class LesionYOLOTrainer:
     def evaluate_model(self, model):
         print("Evaluating model...")
 
-        # Validate the model
         metrics = model.val()
 
         print(f"mAP50: {metrics.box.map50:.4f}")
@@ -193,28 +211,71 @@ class LesionYOLOTrainer:
         return results
 
 
+def predict_multiple_samples(self, model, num_samples=10, conf_threshold=0.25):
+    print(f"Making predictions on {num_samples} sample images...")
+
+    sample_images = os.listdir(self.base_images_dir)
+    if not sample_images:
+        print("No images found in base directory")
+        return []
+
+    random.seed(42)
+    random.shuffle(sample_images)
+    selected_samples = sample_images[: min(num_samples, len(sample_images))]
+
+    image_paths = [os.path.join(self.base_images_dir, img) for img in selected_samples]
+
+    print(f"Selected images: {selected_samples}")
+
+    try:
+        results = model.predict(
+            image_paths,
+            conf=conf_threshold,
+            save=True,
+            show_conf=True,
+            show_labels=True,
+            visualize=True,
+        )
+
+        prediction_results = []
+        for i, (image_file, result) in enumerate(zip(selected_samples, results)):
+            num_detections = len(result.boxes) if result.boxes is not None else 0
+
+            prediction_info = {
+                "image_file": image_file,
+                "image_path": image_paths[i],
+                "results": result,
+                "num_detections": num_detections,
+            }
+
+            prediction_results.append(prediction_info)
+        return prediction_results
+
+    except Exception as e:
+        print(f"ERROR: batch prediction: {e}")
+        return []
+
+
 def main():
-    # Initialize trainer
     trainer = LesionYOLOTrainer()
 
-    # Prepare dataset
     config_path = trainer.prepare_dataset()
 
-    # Train model
+    # Models:
     # yolov8n -> nano version
-
+    # yolov8s -> small version
+    # yolov8m -> medium version
+    # yolov8l -> large version
+    # yolov8x -> extra large version
     model, results = trainer.train_model(
         config_path=config_path,
-        model_size="yolov8n",
+        model_size="yolov8l",
         epochs=200,
         imgsz=512,
     )
 
     # Evaluate model
     metrics = trainer.evaluate_model(model)
-
-    print("Evaluation metrics:")
-    print(metrics)
 
     # Test on a sample image
     sample_images = os.listdir(trainer.base_images_dir)
