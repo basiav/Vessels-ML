@@ -174,6 +174,8 @@ class LesionYOLOTrainer:
 
         print(f"mAP50: {metrics.box.map50:.4f}")
         print(f"mAP50-95: {metrics.box.map:.4f}")
+        print(f"Precision: {metrics.box.precision:.4f}")
+        print(f"Recall: {metrics.box.recall:.4f}")
 
         return metrics
 
@@ -181,7 +183,11 @@ class LesionYOLOTrainer:
         print(f"Making prediction on {image_path}...")
 
         results = model.predict(
-            image_path, conf=conf_threshold, save=True, show_labels=True, show_conf=True
+            image_path,
+            conf=conf_threshold,
+            save=True,
+            show_labels=True,
+            show_conf=True,
         )
 
         return results
@@ -200,7 +206,7 @@ def main():
     model, results = trainer.train_model(
         config_path=config_path,
         model_size="yolov8n",
-        epochs=100,
+        epochs=200,
         imgsz=512,
     )
 
