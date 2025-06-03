@@ -177,19 +177,21 @@ class LesionYOLOTrainer:
             save=True,
             # device="CUDA",
             device="0,1",
-            workers=4,
-            # batch=16,
-            batch=32,
+            # workers=4,
+            batch=16,
+            # batch=96,
             name="lesion_detection",
+            exist_ok=True,
+            single_cls=True,
         )
 
         print("Training completed!")
         return model, results
 
-    def evaluate_model(self, model):
+    def evaluate_model(self, model, dataset_yaml_path=None):
         print("Evaluating model...")
 
-        metrics = model.val()
+        metrics = model.val(data=dataset_yaml_path)
 
         print("\n=== Model Evaluation Results ===")
         print(f"mAP@0.5: {metrics.box.map50:.4f}")
@@ -197,7 +199,6 @@ class LesionYOLOTrainer:
         print(f"mAP@0.75: {metrics.box.map75:.4f}")
         print(f"Mean Precision: {metrics.box.mp:.4f}")
         print(f"Mean Recall: {metrics.box.mr:.4f}")
-        print(f"Model Fitness: {metrics.box.fitness:.4f}")
 
         return metrics
 
@@ -261,9 +262,43 @@ class LesionYOLOTrainer:
             return []
 
 
-def main():
-    trainer = LesionYOLOTrainer()
+def evaluate_trained_model():
+    trainer = LesionYOLOTrainer(
+        base_images_dir="./Dataset/base_images",
+        lesion_data_path="./Dataset/lesion_data.csv",
+    )
 
+    trained_model_path = (
+        "results/iteration-4/runs/detect/lesion_detection/weights/best.pt"
+    )
+    dataset_yaml_path = "results/iteration-4/yolo_dataset/dataset.yaml"
+
+    if not os.path.exists(trained_model_path):
+        print(f"ERROR: Trained model not found at {trained_model_path}")
+        return
+
+    if not os.path.exists(dataset_yaml_path):
+        print(f"ERROR: Dataset YAML not found at {dataset_yaml_path}")
+        return
+
+    model = YOLO(trained_model_path)
+
+    metrics = trainer.evaluate_model(model, dataset_yaml_path)
+    print(f"Evaluation completed. mAP@0.5: {metrics.box.map50:.4f}")
+
+    prediction_results = trainer.predict_multiple_samples(
+        model, num_samples=10, conf_threshold=0.005
+    )
+
+    print(f"\nPredictions generated for {len(prediction_results)} images.")
+    for i, pred_info in enumerate(prediction_results):
+        print(
+            f"  Image {i+1}: {pred_info['image_file']} - Detections: {pred_info['num_detections']}"
+        )
+
+
+def train_model():
+    trainer = LesionYOLOTrainer()
     config_path = trainer.prepare_dataset()
 
     # Models:
@@ -274,7 +309,7 @@ def main():
     # yolov8x -> extra large version
     model, results = trainer.train_model(
         config_path=config_path,
-        model_size="yolov8l",
+        model_size="yolo11l",
         epochs=300,
         imgsz=512,
     )
@@ -283,12 +318,12 @@ def main():
     metrics = trainer.evaluate_model(model)
     prediction_results = trainer.predict_multiple_samples(model, num_samples=10)
 
-    for result in prediction_results:
-        print(f"Predictions for {result['image_file']}:")
-        for box in result["results"].boxes:
-            print(f" - Detected {box.cls} with confidence {box.conf:.2f}")
+    print(f"Model saved")
 
-    print(f"Model saved at {model.save_path}")
+
+def main():
+    # train_model()
+    evaluate_trained_model()
 
 
 if __name__ == "__main__":
