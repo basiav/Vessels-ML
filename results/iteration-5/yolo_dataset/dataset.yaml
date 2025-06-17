@@ -1,0 +1,6 @@
+names:
+  - lesion
+nc: 1
+path: ./results/iteration-5/yolo_dataset
+train: train/images
+val: val/images

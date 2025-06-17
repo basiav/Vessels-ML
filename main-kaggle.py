@@ -11,8 +11,8 @@ import random
 class LesionYOLOTrainer:
     def __init__(
         self,
-        base_images_dir="/kaggle/input/lesion-dataset/base_images",
-        lesion_data_path="/kaggle/input/lesion-dataset/lesion_data.csv",
+        base_images_dir="./Dataset-pruned/base_images",
+        lesion_data_path="./Dataset-pruned/lesion_data.csv",
     ):
         self.base_images_dir = base_images_dir
         self.lesion_data_path = lesion_data_path
@@ -27,7 +27,6 @@ class LesionYOLOTrainer:
     def create_dataset_structure(self):
         print("Creating dataset structure...")
 
-        # Create directories
         for split in ["train", "val"]:
             os.makedirs(f"{self.dataset_dir}/{split}/images", exist_ok=True)
             os.makedirs(f"{self.dataset_dir}/{split}/labels", exist_ok=True)
@@ -46,7 +45,6 @@ class LesionYOLOTrainer:
     def process_annotations(self):
         print("Processing annotations...")
 
-        # Each image can have multiple frames
         grouped = self.lesion_df.groupby(["image_id", "frame"])
 
         image_annotations = {}
@@ -75,7 +73,6 @@ class LesionYOLOTrainer:
                 width = row["lesion_width"]
                 height = row["lesion_height"]
 
-                # Some images may not have lesion annotations
                 if (
                     pd.isna(row["lesion_x"])
                     or pd.isna(row["lesion_y"])
@@ -125,12 +122,10 @@ class LesionYOLOTrainer:
 
         for split, files in [("train", train_files), ("val", val_files)]:
             for image_file in files:
-                # Copy image
                 src_image = os.path.join(self.base_images_dir, image_file)
                 dst_image = os.path.join(self.dataset_dir, split, "images", image_file)
                 shutil.copy2(src_image, dst_image)
 
-                # Create label file
                 label_file = image_file.replace(".png", ".txt")
                 label_path = os.path.join(self.dataset_dir, split, "labels", label_file)
 
@@ -183,6 +178,11 @@ class LesionYOLOTrainer:
             name="lesion_detection",
             exist_ok=True,
             single_cls=True,
+            mosaic=0.0,
+            mixup=0.0,
+            degrees=15.0,
+            flipud=0.5,
+            fliplr=0.5,
         )
 
         print("Training completed!")
@@ -264,14 +264,14 @@ class LesionYOLOTrainer:
 
 def evaluate_trained_model():
     trainer = LesionYOLOTrainer(
-        base_images_dir="./Dataset/base_images",
-        lesion_data_path="./Dataset/lesion_data.csv",
+        base_images_dir="./Dataset-pruned/base_images",
+        lesion_data_path="./Dataset-pruned/lesion_data.csv",
     )
 
     trained_model_path = (
-        "results/iteration-4/runs/detect/lesion_detection/weights/best.pt"
+        "results/iteration-5/runs/detect/lesion_detection/weights/best.pt"
     )
-    dataset_yaml_path = "results/iteration-4/yolo_dataset/dataset.yaml"
+    dataset_yaml_path = "results/iteration-5/yolo_dataset/dataset.yaml"
 
     if not os.path.exists(trained_model_path):
         print(f"ERROR: Trained model not found at {trained_model_path}")
@@ -287,7 +287,7 @@ def evaluate_trained_model():
     print(f"Evaluation completed. mAP@0.5: {metrics.box.map50:.4f}")
 
     prediction_results = trainer.predict_multiple_samples(
-        model, num_samples=10, conf_threshold=0.005
+        model, num_samples=30, conf_threshold=0.1
     )
 
     print(f"\nPredictions generated for {len(prediction_results)} images.")
@@ -314,7 +314,6 @@ def train_model():
         imgsz=512,
     )
 
-    # Evaluation
     metrics = trainer.evaluate_model(model)
     prediction_results = trainer.predict_multiple_samples(model, num_samples=10)
 

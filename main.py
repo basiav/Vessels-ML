@@ -27,7 +27,6 @@ class LesionYOLOTrainer:
     def create_dataset_structure(self):
         print("Creating dataset structure...")
 
-        # Create directories
         for split in ["train", "val"]:
             os.makedirs(f"{self.dataset_dir}/{split}/images", exist_ok=True)
             os.makedirs(f"{self.dataset_dir}/{split}/labels", exist_ok=True)
@@ -46,7 +45,6 @@ class LesionYOLOTrainer:
     def process_annotations(self):
         print("Processing annotations...")
 
-        # Each image can have multiple frames
         grouped = self.lesion_df.groupby(["image_id", "frame"])
 
         image_annotations = {}
@@ -75,7 +73,6 @@ class LesionYOLOTrainer:
                 width = row["lesion_width"]
                 height = row["lesion_height"]
 
-                # Some images may not have lesion annotations
                 if (
                     pd.isna(row["lesion_x"])
                     or pd.isna(row["lesion_y"])
@@ -130,7 +127,6 @@ class LesionYOLOTrainer:
                 dst_image = os.path.join(self.dataset_dir, split, "images", image_file)
                 shutil.copy2(src_image, dst_image)
 
-                # Create label file
                 label_file = image_file.replace(".png", ".txt")
                 label_path = os.path.join(self.dataset_dir, split, "labels", label_file)
 
@@ -180,6 +176,9 @@ class LesionYOLOTrainer:
             workers=4,
             batch=16,
             name="lesion_detection",
+            degrees=15.0,  # rotation augmentation (±15 degrees)
+            flipud=0.5,  # vertical flipping at 50%
+            fliplr=0.5,  # horizontal flipping at 50%
         )
 
         print("Training completed!")
@@ -274,11 +273,9 @@ def main():
         imgsz=512,
     )
 
-    # Evaluate model
     metrics = trainer.evaluate_model(model)
-
-    # Test on a sample image
     sample_images = os.listdir(trainer.base_images_dir)
+
     if sample_images:
         sample_path = os.path.join(trainer.base_images_dir, sample_images[0])
         predictions = trainer.predict_sample(model, sample_path)
