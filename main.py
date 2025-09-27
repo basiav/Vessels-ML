@@ -11,8 +11,8 @@ import random
 class LesionYOLOTrainer:
     def __init__(
         self,
-        base_images_dir="Dataset/base_images",
-        lesion_data_path="Dataset/lesion_data.csv",
+        base_images_dir="data/Dataset/base_images",
+        lesion_data_path="data/Dataset/lesion_data.csv",
     ):
         self.base_images_dir = base_images_dir
         self.lesion_data_path = lesion_data_path
@@ -171,8 +171,8 @@ class LesionYOLOTrainer:
             imgsz=imgsz,
             patience=10,
             save=True,
-            # device="CUDA", :-(
-            device="cpu",
+            device="CUDA", #:-(
+            # device="cpu",
             workers=4,
             batch=16,
             name="lesion_detection",
@@ -191,8 +191,8 @@ class LesionYOLOTrainer:
 
         print(f"mAP50: {metrics.box.map50:.4f}")
         print(f"mAP50-95: {metrics.box.map:.4f}")
-        print(f"Precision: {metrics.box.precision:.4f}")
-        print(f"Recall: {metrics.box.recall:.4f}")
+        # print(f"Precision: {metrics.box.precision:.4f}")
+        # print(f"Recall: {metrics.box.recall:.4f}")
 
         return metrics
 
